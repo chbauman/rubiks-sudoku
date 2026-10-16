@@ -11,7 +11,7 @@
 * { box-sizing: border-box; }
 body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg);
        font: 16px/1.4 system-ui, sans-serif; }
-h1 { margin: 0 0 4px; font-size: 1.5rem; }
+h1 { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; font-size: 1.5rem; }
 p.sub { margin: 0 0 16px; color: var(--muted); }
 .boards { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; }
 .board-wrap h2 { font-size: 1rem; margin: 0 0 6px; text-align: center; }
