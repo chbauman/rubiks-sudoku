@@ -43,7 +43,7 @@
   let resolution = 'columns';
   const resolutionInfo = {
     columns: ['Two columns / rows', 'Conflicts are resolved by exchanging entries only between the two affected columns (or rows).'],
-    chain: ['Whole chain', 'Conflicts are resolved by swapping the two numbers in every cell they chain through, anywhere on the board.'],
+    chain: ['Whole chain', 'Any two numbers of a sub-square can be swapped; conflicts are resolved by swapping the two numbers in every cell they chain through, anywhere on the board.'],
   };
 
   // ---- operations (all return a new grid) ----
@@ -99,10 +99,12 @@
   }
 
   const box = (r, c) => [Math.floor(r / 3), Math.floor(c / 3)];
-  // two cells that may be swapped as numbers: same sub-square, same row or column
+  // two cells that may be swapped as numbers: same sub-square and, with the 'columns' resolution,
+  // additionally the same row or column (the 'chain' resolution allows any two cells of the sub-square)
   function numberPair([r1, c1], [r2, c2]) {
     const [br1, bc1] = box(r1, c1), [br2, bc2] = box(r2, c2);
-    return br1 === br2 && bc1 === bc2 && (r1 === r2) !== (c1 === c2);
+    if (br1 !== br2 || bc1 !== bc2 || (r1 === r2 && c1 === c2)) return false;
+    return resolution === 'chain' || (r1 === r2) !== (c1 === c2);
   }
 
   // ---- state ----
