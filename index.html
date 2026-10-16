@@ -60,17 +60,16 @@
                    background: var(--card); color: var(--fg); cursor: pointer; }
   button:hover { border-color: var(--accent); }
   button:disabled { opacity: .5; cursor: default; }
-  button.mode.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .status { text-align: center; min-height: 1.5em; font-weight: 600; }
   .status.win { color: #2a9d4b; }
-  .hint { text-align: center; color: var(--muted); font-size: .9rem; min-height: 1.3em; }
 </style>
 </head>
 <body>
 <h1>Rubik's Sudoku</h1>
 <p class="sub">Transform the left sudoku into the target on the right — it must stay valid after every move.
   Drag the grips on the left / top onto each other to swap single rows / columns, and the bigger ones on the
-  bottom / right to swap whole sub-square rows / columns.</p>
+  bottom / right to swap whole sub-square rows / columns.
+  Drag a number onto a neighbour in its sub-square (same row or column) to swap the two numbers.</p>
 
 <div class="boards">
   <div class="board-wrap"><h2>Your sudoku</h2><div class="frame" id="frame">
@@ -85,15 +84,6 @@
 
 <div class="controls">
   <div class="status" id="status"></div>
-  <div class="row">
-    <label>Click two cells to:</label>
-    <button class="mode" data-mode="number">Swap numbers</button>
-    <button class="mode" data-mode="row">Swap rows</button>
-    <button class="mode" data-mode="col">Swap columns</button>
-    <button class="mode" data-mode="band">Swap row-bands</button>
-    <button class="mode" data-mode="stack">Swap column-stacks</button>
-  </div>
-  <div class="hint" id="hint"></div>
   <div class="row">
     <button id="rotL">⟲ Rotate 90°</button>
     <button id="rotR">⟳ Rotate 90°</button>
@@ -189,45 +179,14 @@
   };
 
   const box = (r, c) => [Math.floor(r / 3), Math.floor(c / 3)];
-  function validPair(mode, [r1, c1], [r2, c2]) {
+  // two cells that may be swapped as numbers: same sub-square, same row or column
+  function numberPair([r1, c1], [r2, c2]) {
     const [br1, bc1] = box(r1, c1), [br2, bc2] = box(r2, c2);
-    switch (mode) {
-      case 'number': return br1 === br2 && bc1 === bc2 && (r1 === r2) !== (c1 === c2);
-      case 'row': return br1 === br2 && r1 !== r2;
-      case 'col': return bc1 === bc2 && c1 !== c2;
-      case 'band': return br1 !== br2;
-      case 'stack': return bc1 !== bc2;
-    }
-  }
-  function apply(mode, g, a, b) {
-    switch (mode) {
-      case 'number': return ops.number(g, a, b);
-      case 'row': return ops.row(g, a[0], b[0]);
-      case 'col': return ops.col(g, a[1], b[1]);
-      case 'band': return ops.band(g, box(...a)[0], box(...b)[0]);
-      case 'stack': return ops.stack(g, box(...a)[1], box(...b)[1]);
-    }
-  }
-  // does the cell (r,c) belong to the unit that `mode` moves when starting from cell p?
-  function inUnit(mode, p, r, c) {
-    switch (mode) {
-      case 'number': return r === p[0] && c === p[1];
-      case 'row': return r === p[0];
-      case 'col': return c === p[1];
-      case 'band': return Math.floor(r / 3) === box(...p)[0];
-      case 'stack': return Math.floor(c / 3) === box(...p)[1];
-    }
+    return br1 === br2 && bc1 === bc2 && (r1 === r2) !== (c1 === c2);
   }
 
   // ---- state ----
-  let start, target, grid, history, mode = 'number', sel = null, moves = 0, drag = null;
-  const hints = {
-    number: 'Pick a cell, then another in the same sub-square and the same row or column. Conflicts are resolved automatically, using only the two affected columns (or rows).',
-    row: 'Pick a cell, then a cell in a different row of the same band of sub-squares.',
-    col: 'Pick a cell, then a cell in a different column of the same stack of sub-squares.',
-    band: 'Pick a cell, then a cell in a different band (three rows) to swap the two bands.',
-    stack: 'Pick a cell, then a cell in a different stack (three columns) to swap the two stacks.',
-  };
+  let start, target, grid, history, moves = 0, drag = null;
 
   function newGame() {
     const kind = $('kind').value;
@@ -251,29 +210,19 @@
     }
     restart();
   }
-  function restart() { grid = clone(start); history = []; sel = null; moves = 0; render(); }
+  function restart() { grid = clone(start); history = []; moves = 0; render(); }
 
   function commit(next) {
     if (!isValid(next)) return; // should never happen
-    history.push(grid); grid = next; moves++; sel = null; render();
+    history.push(grid); grid = next; moves++; render();
   }
 
-  function onCell(r, c) {
-    if (same(grid, target)) return;
-    if (!sel) { sel = [r, c]; }
-    else if (sel[0] === r && sel[1] === c) { sel = null; }
-    else if (validPair(mode, sel, [r, c])) { commit(apply(mode, grid, sel, [r, c])); return; }
-    else sel = [r, c];
-    render();
-  }
-
-  function buildBoard(el, onClick) {
+  function buildBoard(el, interactive) {
     el.innerHTML = '';
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
       const d = document.createElement('div');
       d.className = 'cell' + (c % 3 === 2 && c < 8 ? ' br' : '') + (r % 3 === 2 && r < 8 ? ' bb' : '');
-      if (onClick) {
-        d.onclick = () => onClick(r, c);
+      if (interactive) {
         d.onpointerdown = () => {  // drag a number onto another cell of its sub-square (same row/column)
           if (same(grid, target)) return;
           drag = { kind: 'number', from: [r, c], over: null };
@@ -303,16 +252,11 @@
       if (num) {
         if ((r === drag.from[0] && c === drag.from[1]) || (preview && r === drag.over[0] && c === drag.over[1])) return 'sel';
         // highlight every cell changed by the swap (incl. auto-resolved conflicts), or the possible drop targets
-        if (preview ? disp[r][c] !== grid[r][c] : validPair('number', drag.from, [r, c])) return 'hl';
+        if (preview ? disp[r][c] !== grid[r][c] : numberPair(drag.from, [r, c])) return 'hl';
       } else if (drag) {
         if (preview && inDragUnit(drag.kind, drag.over, r, c)) return 'sel'; // dragged unit, now at its new spot
         if (preview && inDragUnit(drag.kind, drag.idx, r, c)) return 'hl';
         if (!preview && inDragUnit(drag.kind, drag.idx, r, c)) return 'sel';
-      }
-      if (sel) {
-        if (r === sel[0] && c === sel[1]) return 'sel';
-        if (inUnit(mode, sel, r, c)) return 'sel';
-        if (validPair(mode, sel, [r, c])) return 'hl';
       }
       return disp[r][c] === target[r][c] ? 'match' : '';
     });
@@ -331,8 +275,6 @@
       h.classList.toggle('disabled', !!unit && !(mine && (i === drag.idx || dragValid(drag.kind, drag.idx, i))));
     });
     $('undo').disabled = !history.length;
-    $('hint').textContent = hints[mode];
-    document.querySelectorAll('.mode').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
   }
 
   // ---- drag & drop on the grips around the board ----
@@ -352,7 +294,7 @@
                   band: 'Drag onto another band of sub-squares', stack: 'Drag onto another stack of sub-squares' }[kind];
       h.addEventListener('pointerdown', e => {
         if (same(grid, target)) return;
-        e.preventDefault(); sel = null;
+        e.preventDefault();
         drag = { kind, idx: i, over: null };
         document.body.classList.add('dragging');
         render();
@@ -367,7 +309,7 @@
       const cell = el?.closest('#cur .cell');
       if (cell) {
         const k = [...cell.parentNode.children].indexOf(cell), rc = [Math.floor(k / N), k % N];
-        if (validPair('number', drag.from, rc)) over = rc;
+        if (numberPair(drag.from, rc)) over = rc;
       }
       if (String(over) === String(drag.over)) return;
     } else {
@@ -389,11 +331,10 @@
   window.addEventListener('pointerup', e => endDrag(e, false));
   window.addEventListener('pointercancel', e => endDrag(e, true));
 
-  buildBoard($('cur'), onCell);
+  buildBoard($('cur'), true);
   buildBoard($('tgt'));
-  document.querySelectorAll('.mode').forEach(b => b.onclick = () => { mode = b.dataset.mode; sel = null; render(); });
   for (const k of ['rotL', 'rotR', 'flipH', 'flipV']) $(k).onclick = () => { if (!same(grid, target)) commit(ops[k](grid)); };
-  $('undo').onclick = () => { if (history.length) { grid = history.pop(); moves--; sel = null; render(); } };
+  $('undo').onclick = () => { if (history.length) { grid = history.pop(); moves--; render(); } };
   $('reset').onclick = restart;
   $('new').onclick = newGame;
   window.__rs = { ops, isValid, generate }; // handy for debugging in the console
