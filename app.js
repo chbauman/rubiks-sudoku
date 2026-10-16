@@ -150,13 +150,15 @@
           render();
         };
       }
+      d.innerHTML = '<span class="v"></span><span class="pm"></span>';
       el.appendChild(d);
     }
   }
   function paint(el, g, cls) {
     [...el.children].forEach((d, i) => {
       const r = Math.floor(i / N), c = i % N;
-      d.textContent = g[r][c];
+      d.firstChild.textContent = g[r][c];
+      d.lastChild.textContent = target[r][c]; // pencil mark: the target digit
       d.classList.remove('match', 'hl', 'sel');
       const k = cls && cls(r, c); if (k) d.classList.add(k);
     });
@@ -180,7 +182,6 @@
       }
       return disp[r][c] === target[r][c] ? 'match' : '';
     });
-    paint($('tgt'), target);
     const st = $('status');
     st.className = 'status' + (won ? ' win' : '');
     st.textContent = won ? `Solved in ${moves} move${moves === 1 ? '' : 's'}! 🎉`
@@ -255,7 +256,6 @@
   window.addEventListener('pointercancel', e => endDrag(e, true));
 
   buildBoard($('cur'), true);
-  buildBoard($('tgt'));
   for (const k of ['rotL', 'rotR', 'flipH', 'flipV']) $(k).onclick = () => { if (!same(grid, target)) commit(ops[k](grid)); };
   $('undo').onclick = () => { if (history.length) { grid = history.pop(); moves--; render(); } };
   $('resolution').onclick = () => { resolution = resolution === 'columns' ? 'chain' : 'columns'; render(); };
