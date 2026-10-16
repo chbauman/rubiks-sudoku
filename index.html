@@ -49,6 +49,8 @@
   .handle.big { background: color-mix(in srgb, var(--accent) 35%, var(--card)); color: var(--fg); }
   .handle:hover { background: var(--accent); color: #fff; }
   .handle.dragging { background: var(--sel); color: var(--fg); cursor: grabbing; }
+  .handle.disabled { opacity: .25; cursor: not-allowed; pointer-events: none; }
+  #cur .cell { touch-action: none; }
   .handle.over { background: var(--accent); color: #fff; }
   body.dragging, body.dragging * { cursor: grabbing !important; }
   .controls { max-width: 760px; margin: 20px auto 0; display: grid; gap: 12px; }
@@ -267,7 +269,15 @@
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
       const d = document.createElement('div');
       d.className = 'cell' + (c % 3 === 2 && c < 8 ? ' br' : '') + (r % 3 === 2 && r < 8 ? ' bb' : '');
-      if (onClick) d.onclick = () => onClick(r, c);
+      if (onClick) {
+        d.onclick = () => onClick(r, c);
+        d.onpointerdown = () => {  // drag a number onto another cell of its sub-square (same row/column)
+          if (same(grid, target)) return;
+          drag = { kind: 'number', from: [r, c], over: null };
+          document.body.classList.add('dragging');
+          render();
+        };
+      }
       el.appendChild(d);
     }
   }
@@ -284,9 +294,14 @@
     const won = same(grid, target);
     // live preview: while hovering a valid drop target, show the board as it would look after the swap
     const preview = drag && drag.over != null;
-    const disp = preview ? ops[drag.kind](grid, drag.idx, drag.over) : grid;
+    const num = drag && drag.kind === 'number';
+    const disp = !preview ? grid : num ? ops.number(grid, drag.from, drag.over) : ops[drag.kind](grid, drag.idx, drag.over);
     paint($('cur'), disp, (r, c) => {
-      if (drag) {
+      if (num) {
+        if ((r === drag.from[0] && c === drag.from[1]) || (preview && r === drag.over[0] && c === drag.over[1])) return 'sel';
+        // highlight every cell changed by the swap (incl. auto-resolved conflicts), or the possible drop targets
+        if (preview ? disp[r][c] !== grid[r][c] : validPair('number', drag.from, [r, c])) return 'hl';
+      } else if (drag) {
         if (preview && inDragUnit(drag.kind, drag.over, r, c)) return 'sel'; // dragged unit, now at its new spot
         if (preview && inDragUnit(drag.kind, drag.idx, r, c)) return 'hl';
         if (!preview && inDragUnit(drag.kind, drag.idx, r, c)) return 'sel';
@@ -304,9 +319,13 @@
     st.textContent = won ? `Solved in ${moves} move${moves === 1 ? '' : 's'}! 🎉`
       : `Moves: ${moves} · Matching cells: ${grid.flat().filter((v, i) => v === target.flat()[i]).length}/81`;
     document.querySelectorAll('.handle').forEach(h => {
-      const mine = drag && h.dataset.kind === drag.kind;
-      h.classList.toggle('dragging', !!mine && +h.dataset.idx === drag.idx);
-      h.classList.toggle('over', !!mine && +h.dataset.idx === drag.over);
+      const unit = drag && drag.kind !== 'number';
+      const mine = unit && h.dataset.kind === drag.kind;
+      const i = +h.dataset.idx;
+      h.classList.toggle('dragging', mine && i === drag.idx);
+      h.classList.toggle('over', mine && i === drag.over);
+      // while dragging a unit, only grips it can actually be dropped on stay enabled
+      h.classList.toggle('disabled', !!unit && !(mine && (i === drag.idx || dragValid(drag.kind, drag.idx, i))));
     });
     $('undo').disabled = !history.length;
     $('hint').textContent = hints[mode];
@@ -339,9 +358,21 @@
     }
   });
   const dragOver = e => {
-    const h = document.elementFromPoint(e.clientX, e.clientY)?.closest('.handle');
-    const over = h && h.dataset.kind === drag.kind && dragValid(drag.kind, drag.idx, +h.dataset.idx) ? +h.dataset.idx : null;
-    if (over !== drag.over) { drag.over = over; render(); }
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    let over = null;
+    if (drag.kind === 'number') {
+      const cell = el?.closest('#cur .cell');
+      if (cell) {
+        const k = [...cell.parentNode.children].indexOf(cell), rc = [Math.floor(k / N), k % N];
+        if (validPair('number', drag.from, rc)) over = rc;
+      }
+      if (String(over) === String(drag.over)) return;
+    } else {
+      const h = el?.closest('.handle');
+      over = h && h.dataset.kind === drag.kind && dragValid(drag.kind, drag.idx, +h.dataset.idx) ? +h.dataset.idx : null;
+      if (over === drag.over) return;
+    }
+    drag.over = over; render();
   };
   window.addEventListener('pointermove', e => { if (drag) dragOver(e); });
   const endDrag = (e, cancel) => {
@@ -349,7 +380,8 @@
     if (!cancel) dragOver(e);
     const d = drag; drag = null;
     document.body.classList.remove('dragging');
-    if (!cancel && d.over != null) commit(ops[d.kind](grid, d.idx, d.over)); else render();
+    if (!cancel && d.over != null) commit(d.kind === 'number' ? ops.number(grid, d.from, d.over) : ops[d.kind](grid, d.idx, d.over));
+    else render();
   };
   window.addEventListener('pointerup', e => endDrag(e, false));
   window.addEventListener('pointercancel', e => endDrag(e, true));
