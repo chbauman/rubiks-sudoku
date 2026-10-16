@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Rubik's Sudoku logo">
+  <rect x="4" y="4" width="120" height="120" rx="18" fill="#ffffff" stroke="#1d2330" stroke-width="6"/>
+  <rect x="64" y="10" width="54" height="54" fill="#d8f2dc"/>
+  <rect x="10" y="64" width="54" height="54" fill="#d8f2dc"/>
+  <path d="M64 10V118M10 64H118" stroke="#c5cad6" stroke-width="3"/>
+  <rect x="4" y="4" width="120" height="120" rx="18" fill="none" stroke="#1d2330" stroke-width="6"/>
+  <g font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="44" font-weight="600" fill="#1d2330" text-anchor="middle" dominant-baseline="central">
+    <text x="37" y="38">1</text>
+    <text x="91" y="38">2</text>
+    <text x="37" y="92">3</text>
+    <text x="91" y="92">4</text>
+  </g>
+</svg>

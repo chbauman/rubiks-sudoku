@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rubik's Sudoku</title>
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<h1><img class="logo" src="logo.svg" alt="" width="36" height="36"> Rubik's Sudoku</h1>
+<p class="sub">Transform the left sudoku into the target on the right — it must stay valid after every move.
+  Drag the grips on the left / top onto each other to swap single rows / columns, and the bigger ones on the
+  bottom / right to swap whole sub-square rows / columns.
+  Drag a number onto a neighbour in its sub-square (same row or column) to swap the two numbers.</p>
+
+<div class="boards">
+  <div class="board-wrap"><h2>Your sudoku</h2><div class="frame" id="frame">
+      <div class="strip top" data-kind="col"></div>
+      <div class="strip left" data-kind="row"></div>
+      <div id="cur" class="board"></div>
+      <div class="strip right" data-kind="band"></div>
+      <div class="strip bottom" data-kind="stack"></div>
+    </div></div>
+  <div class="board-wrap"><h2>Target</h2><div id="tgt" class="board small"></div></div>
+</div>
+
+<div class="controls">
+  <div class="status" id="status"></div>
+  <div class="row">
+    <button id="rotL">⟲ Rotate 90°</button>
+    <button id="rotR">⟳ Rotate 90°</button>
+    <button id="flipH">⇔ Flip horizontally</button>
+    <button id="flipV">⇕ Flip vertically</button>
+  </div>
+  <div class="row">
+    <button id="undo">Undo</button>
+    <button id="reset">Restart</button>
+    <label for="kind">New game:</label>
+    <select id="kind">
+      <option value="random">Two random sudokus</option>
+      <option value="5">Scrambled — 5 moves</option>
+      <option value="15" selected>Scrambled — 15 moves</option>
+      <option value="40">Scrambled — 40 moves</option>
+    </select>
+    <button id="new">New game</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
