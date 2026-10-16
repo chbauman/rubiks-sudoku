@@ -54,3 +54,5 @@ button:disabled { opacity: .5; cursor: default; }
 .status { text-align: center; min-height: 1.5em; font-weight: 600; }
 .status.win { color: #2a9d4b; }
 .hint { text-align: center; color: var(--muted); font-size: .9rem; min-height: 1.3em; }
+button.icon { width: 40px; height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+button.icon svg { display: block; }
