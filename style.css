@@ -55,3 +55,4 @@ button:hover { border-color: var(--accent); }
 button:disabled { opacity: .5; cursor: default; }
 .status { text-align: center; min-height: 1.5em; font-weight: 600; }
 .status.win { color: #2a9d4b; }
+.hint { text-align: center; color: var(--muted); font-size: .9rem; min-height: 1.3em; }

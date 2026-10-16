@@ -39,6 +39,13 @@
     return true;
   }
 
+  // how conflicts of a number swap are resolved: 'columns' (only the two affected columns/rows) or 'chain'
+  let resolution = 'columns';
+  const resolutionInfo = {
+    columns: ['Two columns / rows', 'Conflicts are resolved by exchanging entries only between the two affected columns (or rows).'],
+    chain: ['Whole chain', 'Conflicts are resolved by swapping the two numbers in every cell they chain through, anywhere on the board.'],
+  };
+
   // ---- operations (all return a new grid) ----
   const ops = {
     rotR: g => g.map((_, r) => g.map((_, c) => g[N - 1 - c][r])),
@@ -53,10 +60,13 @@
     // resolved using only the two affected columns (horizontal move) or rows (vertical move):
     // the two columns exchange their entries in every row of the cycle that the swapped row
     // belongs to. In the worst case that cycle is everything, i.e. the two whole columns are swapped.
-    number(g, [r1, c1], [r2, c2]) {
+    // With resolution 'chain' instead, the two values are swapped in every cell of the whole
+    // connected chain of those two values (anywhere on the board), see numberChain().
+    number(g, [r1, c1], [r2, c2], mode = resolution) {
+      if (mode === 'chain') return numberChain(g, [r1, c1], [r2, c2]);
       if (r1 !== r2) { // vertical move: do the horizontal logic on the transposed grid
         const t = g.map((_, r) => g.map((_, c) => g[c][r]));
-        const n = ops.number(t, [c1, r1], [c2, r2]);
+        const n = ops.number(t, [c1, r1], [c2, r2], mode);
         return n.map((_, r) => n.map((_, c) => n[c][r]));
       }
       const n = clone(g);
@@ -70,6 +80,23 @@
       return n;
     },
   };
+
+  // Alternative number swap: swap the two values a, b in every cell of the connected chain
+  // (cells holding a or b that share a row, column or sub-square, starting from the chosen cell).
+  function numberChain(g, [r1, c1], [r2, c2]) {
+    const a = g[r1][c1], b = g[r2][c2], n = clone(g);
+    const linked = (p, q) => p[0] === q[0] || p[1] === q[1] ||
+      (Math.floor(p[0] / 3) === Math.floor(q[0] / 3) && Math.floor(p[1] / 3) === Math.floor(q[1] / 3));
+    const cells = [];
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (g[r][c] === a || g[r][c] === b) cells.push([r, c]);
+    const seen = new Set([r1 * N + c1]), queue = [[r1, c1]];
+    while (queue.length) {
+      const p = queue.pop();
+      for (const q of cells) if (!seen.has(q[0] * N + q[1]) && linked(p, q)) { seen.add(q[0] * N + q[1]); queue.push(q); }
+    }
+    for (const k of seen) { const r = Math.floor(k / N), c = k % N; n[r][c] = g[r][c] === a ? b : a; }
+    return n;
+  }
 
   const box = (r, c) => [Math.floor(r / 3), Math.floor(c / 3)];
   // two cells that may be swapped as numbers: same sub-square, same row or column
@@ -167,6 +194,9 @@
       // while dragging a unit, only grips it can actually be dropped on stay enabled
       h.classList.toggle('disabled', !!unit && !(mine && (i === drag.idx || dragValid(drag.kind, drag.idx, i))));
     });
+    $('resolution').textContent = 'Conflict resolution: ' + resolutionInfo[resolution][0];
+    $('resolution').title = resolutionInfo[resolution][1];
+    $('resolutionInfo').textContent = resolutionInfo[resolution][1];
     $('undo').disabled = !history.length;
   }
 
@@ -228,6 +258,7 @@
   buildBoard($('tgt'));
   for (const k of ['rotL', 'rotR', 'flipH', 'flipV']) $(k).onclick = () => { if (!same(grid, target)) commit(ops[k](grid)); };
   $('undo').onclick = () => { if (history.length) { grid = history.pop(); moves--; render(); } };
+  $('resolution').onclick = () => { resolution = resolution === 'columns' ? 'chain' : 'columns'; render(); };
   $('reset').onclick = restart;
   $('new').onclick = newGame;
   window.__rs = { ops, isValid, generate }; // handy for debugging in the console
