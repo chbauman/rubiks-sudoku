@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rubik's Sudoku</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --fg: #1d2330; --card: #fff; --line: #c5cad6; --thick: #1d2330;
+    --accent: #3b6fe0; --sel: #ffe27a; --target: #cfe0ff; --match: #d8f2dc; --muted: #6b7385;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171f; --fg: #e8ebf3; --card: #1e232f; --line: #3a4152; --thick: #aab3c8;
+      --accent: #6c97ff; --sel: #7a6414; --target: #26385f; --match: #1f4a2c; --muted: #98a1b5;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg);
+         font: 16px/1.4 system-ui, sans-serif; }
+  h1 { margin: 0 0 4px; font-size: 1.5rem; }
+  p.sub { margin: 0 0 16px; color: var(--muted); }
+  .boards { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; }
+  .board-wrap h2 { font-size: 1rem; margin: 0 0 6px; text-align: center; }
+  .board { display: grid; grid-template-columns: repeat(9, 1fr); width: min(92vw, 420px);
+           aspect-ratio: 1; background: var(--card); border: 2px solid var(--thick); }
+  .board.small { width: min(92vw, 300px); }
+  .cell { display: flex; align-items: center; justify-content: center; font-size: clamp(14px, 4.6vw, 24px);
+          border: 1px solid var(--line); user-select: none; }
+  .board.small .cell { font-size: clamp(12px, 3.6vw, 18px); }
+  .board:not(.small) .cell { cursor: pointer; }
+  .cell.br { border-right: 2px solid var(--thick); }
+  .cell.bb { border-bottom: 2px solid var(--thick); }
+  .cell.lr { border-right-width: 0; }
+  .cell.match { background: var(--match); }
+  .cell.hl { background: var(--target); }
+  .cell.sel { background: var(--sel); }
+  .controls { max-width: 760px; margin: 20px auto 0; display: grid; gap: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+  .row > label { color: var(--muted); font-size: .9rem; }
+  button, select { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line);
+                   background: var(--card); color: var(--fg); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.mode.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .status { text-align: center; min-height: 1.5em; font-weight: 600; }
+  .status.win { color: #2a9d4b; }
+  .hint { text-align: center; color: var(--muted); font-size: .9rem; min-height: 1.3em; }
+</style>
+</head>
+<body>
+<h1>Rubik's Sudoku</h1>
+<p class="sub">Transform the left sudoku into the target on the right — it must stay valid after every move.</p>
+
+<div class="boards">
+  <div class="board-wrap"><h2>Your sudoku</h2><div id="cur" class="board"></div></div>
+  <div class="board-wrap"><h2>Target</h2><div id="tgt" class="board small"></div></div>
+</div>
+
+<div class="controls">
+  <div class="status" id="status"></div>
+  <div class="row">
+    <label>Click two cells to:</label>
+    <button class="mode" data-mode="number">Swap numbers</button>
+    <button class="mode" data-mode="row">Swap rows</button>
+    <button class="mode" data-mode="col">Swap columns</button>
+    <button class="mode" data-mode="band">Swap row-bands</button>
+    <button class="mode" data-mode="stack">Swap column-stacks</button>
+  </div>
+  <div class="hint" id="hint"></div>
+  <div class="row">
+    <button id="rotL">⟲ Rotate 90°</button>
+    <button id="rotR">⟳ Rotate 90°</button>
+    <button id="flipH">⇔ Flip horizontally</button>
+    <button id="flipV">⇕ Flip vertically</button>
+  </div>
+  <div class="row">
+    <button id="undo">Undo</button>
+    <button id="reset">Restart</button>
+    <label for="kind">New game:</label>
+    <select id="kind">
+      <option value="random">Two random sudokus</option>
+      <option value="5">Scrambled — 5 moves</option>
+      <option value="15" selected>Scrambled — 15 moves</option>
+      <option value="40">Scrambled — 40 moves</option>
+    </select>
+    <button id="new">New game</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const N = 9;
+  const $ = id => document.getElementById(id);
+  const clone = g => g.map(r => r.slice());
+  const same = (a, b) => a.every((r, i) => r.every((v, j) => v === b[i][j]));
+  const rnd = n => Math.floor(Math.random() * n);
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+  // ---- random solved sudoku via randomized backtracking ----
+  function generate() {
+    const g = Array.from({ length: N }, () => Array(N).fill(0));
+    const ok = (r, c, v) => {
+      for (let i = 0; i < N; i++) if (g[r][i] === v || g[i][c] === v) return false;
+      const br = r - r % 3, bc = c - c % 3;
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) if (g[br + i][bc + j] === v) return false;
+      return true;
+    };
+    const fill = p => {
+      if (p === 81) return true;
+      const r = Math.floor(p / N), c = p % N;
+      for (const v of shuffle([1,2,3,4,5,6,7,8,9])) {
+        if (ok(r, c, v)) { g[r][c] = v; if (fill(p + 1)) return true; g[r][c] = 0; }
+      }
+      return false;
+    };
+    fill(0);
+    return g;
+  }
+
+  function isValid(g) {
+    for (let i = 0; i < N; i++) {
+      const row = new Set(), col = new Set(), box = new Set();
+      for (let j = 0; j < N; j++) {
+        row.add(g[i][j]); col.add(g[j][i]);
+        box.add(g[3 * Math.floor(i / 3) + Math.floor(j / 3)][3 * (i % 3) + (j % 3)]);
+      }
+      if (row.size !== N || col.size !== N || box.size !== N) return false;
+    }
+    return true;
+  }
+
+  // ---- operations (all return a new grid) ----
+  const ops = {
+    rotR: g => g.map((_, r) => g.map((_, c) => g[N - 1 - c][r])),
+    rotL: g => g.map((_, r) => g.map((_, c) => g[c][N - 1 - r])),
+    flipH: g => g.map(r => r.slice().reverse()),
+    flipV: g => g.slice().reverse().map(r => r.slice()),
+    row(g, r1, r2) { const n = clone(g); [n[r1], n[r2]] = [n[r2], n[r1]]; return n; },
+    col(g, c1, c2) { const n = clone(g); n.forEach(r => [r[c1], r[c2]] = [r[c2], r[c1]]); return n; },
+    band(g, b1, b2) { let n = clone(g); for (let i = 0; i < 3; i++) n = ops.row(n, 3 * b1 + i, 3 * b2 + i); return n; },
+    stack(g, s1, s2) { let n = clone(g); for (let i = 0; i < 3; i++) n = ops.col(n, 3 * s1 + i, 3 * s2 + i); return n; },
+    // Swap two cells in the same sub-square (same row or column). Conflicts are resolved by
+    // swapping the two values in every cell of the connected chain of those two values.
+    number(g, [r1, c1], [r2, c2]) {
+      const a = g[r1][c1], b = g[r2][c2];
+      const n = clone(g);
+      const linked = (p, q) => p[0] === q[0] || p[1] === q[1] ||
+        (Math.floor(p[0] / 3) === Math.floor(q[0] / 3) && Math.floor(p[1] / 3) === Math.floor(q[1] / 3));
+      const cells = [];
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (g[r][c] === a || g[r][c] === b) cells.push([r, c]);
+      const seen = new Set([r1 * N + c1]), queue = [[r1, c1]];
+      while (queue.length) {
+        const p = queue.pop();
+        for (const q of cells) if (!seen.has(q[0] * N + q[1]) && linked(p, q)) { seen.add(q[0] * N + q[1]); queue.push(q); }
+      }
+      for (const k of seen) { const r = Math.floor(k / N), c = k % N; n[r][c] = g[r][c] === a ? b : a; }
+      return n;
+    },
+  };
+
+  const box = (r, c) => [Math.floor(r / 3), Math.floor(c / 3)];
+  function validPair(mode, [r1, c1], [r2, c2]) {
+    const [br1, bc1] = box(r1, c1), [br2, bc2] = box(r2, c2);
+    switch (mode) {
+      case 'number': return br1 === br2 && bc1 === bc2 && (r1 === r2) !== (c1 === c2);
+      case 'row': return br1 === br2 && r1 !== r2;
+      case 'col': return bc1 === bc2 && c1 !== c2;
+      case 'band': return br1 !== br2;
+      case 'stack': return bc1 !== bc2;
+    }
+  }
+  function apply(mode, g, a, b) {
+    switch (mode) {
+      case 'number': return ops.number(g, a, b);
+      case 'row': return ops.row(g, a[0], b[0]);
+      case 'col': return ops.col(g, a[1], b[1]);
+      case 'band': return ops.band(g, box(...a)[0], box(...b)[0]);
+      case 'stack': return ops.stack(g, box(...a)[1], box(...b)[1]);
+    }
+  }
+  // does the cell (r,c) belong to the unit that `mode` moves when starting from cell p?
+  function inUnit(mode, p, r, c) {
+    switch (mode) {
+      case 'number': return r === p[0] && c === p[1];
+      case 'row': return r === p[0];
+      case 'col': return c === p[1];
+      case 'band': return Math.floor(r / 3) === box(...p)[0];
+      case 'stack': return Math.floor(c / 3) === box(...p)[1];
+    }
+  }
+
+  // ---- state ----
+  let start, target, grid, history, mode = 'number', sel = null, moves = 0;
+  const hints = {
+    number: 'Pick a cell, then another in the same sub-square and the same row or column. Conflicts are resolved automatically.',
+    row: 'Pick a cell, then a cell in a different row of the same band of sub-squares.',
+    col: 'Pick a cell, then a cell in a different column of the same stack of sub-squares.',
+    band: 'Pick a cell, then a cell in a different band (three rows) to swap the two bands.',
+    stack: 'Pick a cell, then a cell in a different stack (three columns) to swap the two stacks.',
+  };
+
+  function newGame() {
+    const kind = $('kind').value;
+    start = generate();
+    if (kind === 'random') target = generate();
+    else {
+      target = clone(start);
+      const simple = ['rotR', 'rotL', 'flipH', 'flipV'];
+      for (let i = 0; i < +kind; i++) {
+        const t = rnd(5);
+        if (t === 0) target = ops[simple[rnd(4)]](target);
+        else if (t === 1) { const b = rnd(3), [x, y] = shuffle([0, 1, 2]); target = ops.row(target, 3 * b + x, 3 * b + y); }
+        else if (t === 2) { const b = rnd(3), [x, y] = shuffle([0, 1, 2]); target = ops.col(target, 3 * b + x, 3 * b + y); }
+        else if (t === 3) { const [x, y] = shuffle([0, 1, 2]); target = rnd(2) ? ops.band(target, x, y) : ops.stack(target, x, y); }
+        else {
+          const br = rnd(3), bc = rnd(3), a = [3 * br + rnd(3), 3 * bc + rnd(3)];
+          const b = rnd(2) ? [a[0], 3 * bc + (a[1] % 3 + 1 + rnd(2)) % 3] : [3 * br + (a[0] % 3 + 1 + rnd(2)) % 3, a[1]];
+          target = ops.number(target, a, b);
+        }
+      }
+    }
+    restart();
+  }
+  function restart() { grid = clone(start); history = []; sel = null; moves = 0; render(); }
+
+  function commit(next) {
+    if (!isValid(next)) return; // should never happen
+    history.push(grid); grid = next; moves++; sel = null; render();
+  }
+
+  function onCell(r, c) {
+    if (same(grid, target)) return;
+    if (!sel) { sel = [r, c]; }
+    else if (sel[0] === r && sel[1] === c) { sel = null; }
+    else if (validPair(mode, sel, [r, c])) { commit(apply(mode, grid, sel, [r, c])); return; }
+    else sel = [r, c];
+    render();
+  }
+
+  function buildBoard(el, onClick) {
+    el.innerHTML = '';
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      const d = document.createElement('div');
+      d.className = 'cell' + (c % 3 === 2 && c < 8 ? ' br' : '') + (r % 3 === 2 && r < 8 ? ' bb' : '');
+      if (onClick) d.onclick = () => onClick(r, c);
+      el.appendChild(d);
+    }
+  }
+  function paint(el, g, cls) {
+    [...el.children].forEach((d, i) => {
+      const r = Math.floor(i / N), c = i % N;
+      d.textContent = g[r][c];
+      d.classList.remove('match', 'hl', 'sel');
+      const k = cls && cls(r, c); if (k) d.classList.add(k);
+    });
+  }
+
+  function render() {
+    const won = same(grid, target);
+    paint($('cur'), grid, (r, c) => {
+      if (sel) {
+        if (r === sel[0] && c === sel[1]) return 'sel';
+        if (inUnit(mode, sel, r, c)) return 'sel';
+        if (validPair(mode, sel, [r, c])) return 'hl';
+      }
+      return grid[r][c] === target[r][c] ? 'match' : '';
+    });
+    paint($('tgt'), target);
+    const st = $('status');
+    st.className = 'status' + (won ? ' win' : '');
+    st.textContent = won ? `Solved in ${moves} move${moves === 1 ? '' : 's'}! 🎉`
+      : `Moves: ${moves} · Matching cells: ${grid.flat().filter((v, i) => v === target.flat()[i]).length}/81`;
+    $('undo').disabled = !history.length;
+    $('hint').textContent = hints[mode];
+    document.querySelectorAll('.mode').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  }
+
+  buildBoard($('cur'), onCell);
+  buildBoard($('tgt'));
+  document.querySelectorAll('.mode').forEach(b => b.onclick = () => { mode = b.dataset.mode; sel = null; render(); });
+  for (const k of ['rotL', 'rotR', 'flipH', 'flipV']) $(k).onclick = () => { if (!same(grid, target)) commit(ops[k](grid)); };
+  $('undo').onclick = () => { if (history.length) { grid = history.pop(); moves--; sel = null; render(); } };
+  $('reset').onclick = restart;
+  $('new').onclick = newGame;
+  window.__rs = { ops, isValid, generate }; // handy for debugging in the console
+  newGame();
+})();
+</script>
+</body>
+</html>
