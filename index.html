@@ -35,6 +35,22 @@
   .cell.match { background: var(--match); }
   .cell.hl { background: var(--target); }
   .cell.sel { background: var(--sel); }
+  .frame { display: grid; grid-template-columns: 22px 1fr 22px; grid-template-rows: 22px auto 22px;
+           width: min(92vw, 464px); gap: 2px; }
+  .frame .board { width: 100%; grid-area: 2 / 2; }
+  .strip { display: grid; touch-action: none; }
+  .strip.top { grid-area: 1 / 2; grid-template-columns: repeat(9, 1fr); }
+  .strip.left { grid-area: 2 / 1; grid-template-rows: repeat(9, 1fr); }
+  .strip.bottom { grid-area: 3 / 2; grid-template-columns: repeat(3, 1fr); }
+  .strip.right { grid-area: 2 / 3; grid-template-rows: repeat(3, 1fr); }
+  .handle { margin: 1px; border-radius: 5px; background: var(--line); color: var(--muted); cursor: grab;
+            display: flex; align-items: center; justify-content: center; font-size: 11px;
+            user-select: none; touch-action: none; transition: background .1s; }
+  .handle.big { background: color-mix(in srgb, var(--accent) 35%, var(--card)); color: var(--fg); }
+  .handle:hover { background: var(--accent); color: #fff; }
+  .handle.dragging { background: var(--sel); color: var(--fg); cursor: grabbing; }
+  .handle.over { background: var(--accent); color: #fff; }
+  body.dragging, body.dragging * { cursor: grabbing !important; }
   .controls { max-width: 760px; margin: 20px auto 0; display: grid; gap: 12px; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
   .row > label { color: var(--muted); font-size: .9rem; }
@@ -50,10 +66,18 @@
 </head>
 <body>
 <h1>Rubik's Sudoku</h1>
-<p class="sub">Transform the left sudoku into the target on the right — it must stay valid after every move.</p>
+<p class="sub">Transform the left sudoku into the target on the right — it must stay valid after every move.
+  Drag the grips on the left / top onto each other to swap single rows / columns, and the bigger ones on the
+  bottom / right to swap whole sub-square rows / columns.</p>
 
 <div class="boards">
-  <div class="board-wrap"><h2>Your sudoku</h2><div id="cur" class="board"></div></div>
+  <div class="board-wrap"><h2>Your sudoku</h2><div class="frame" id="frame">
+      <div class="strip top" data-kind="col"></div>
+      <div class="strip left" data-kind="row"></div>
+      <div id="cur" class="board"></div>
+      <div class="strip right" data-kind="stack"></div>
+      <div class="strip bottom" data-kind="band"></div>
+    </div></div>
   <div class="board-wrap"><h2>Target</h2><div id="tgt" class="board small"></div></div>
 </div>
 
@@ -191,7 +215,7 @@
   }
 
   // ---- state ----
-  let start, target, grid, history, mode = 'number', sel = null, moves = 0;
+  let start, target, grid, history, mode = 'number', sel = null, moves = 0, drag = null;
   const hints = {
     number: 'Pick a cell, then another in the same sub-square and the same row or column. Conflicts are resolved automatically.',
     row: 'Pick a cell, then a cell in a different row of the same band of sub-squares.',
@@ -259,6 +283,10 @@
   function render() {
     const won = same(grid, target);
     paint($('cur'), grid, (r, c) => {
+      if (drag) {
+        if (inDragUnit(drag.kind, drag.idx, r, c)) return 'sel';
+        if (drag.over != null && inDragUnit(drag.kind, drag.over, r, c)) return 'hl';
+      }
       if (sel) {
         if (r === sel[0] && c === sel[1]) return 'sel';
         if (inUnit(mode, sel, r, c)) return 'sel';
@@ -271,10 +299,56 @@
     st.className = 'status' + (won ? ' win' : '');
     st.textContent = won ? `Solved in ${moves} move${moves === 1 ? '' : 's'}! 🎉`
       : `Moves: ${moves} · Matching cells: ${grid.flat().filter((v, i) => v === target.flat()[i]).length}/81`;
+    document.querySelectorAll('.handle').forEach(h => {
+      const mine = drag && h.dataset.kind === drag.kind;
+      h.classList.toggle('dragging', !!mine && +h.dataset.idx === drag.idx);
+      h.classList.toggle('over', !!mine && +h.dataset.idx === drag.over);
+    });
     $('undo').disabled = !history.length;
     $('hint').textContent = hints[mode];
     document.querySelectorAll('.mode').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
   }
+
+  // ---- drag & drop on the grips around the board ----
+  const inDragUnit = (kind, i, r, c) =>
+    kind === 'row' ? r === i : kind === 'col' ? c === i :
+    kind === 'band' ? Math.floor(r / 3) === i : Math.floor(c / 3) === i;
+  const dragValid = (kind, a, b) => a !== b && ((kind === 'row' || kind === 'col') ? Math.floor(a / 3) === Math.floor(b / 3) : true);
+
+  document.querySelectorAll('.strip').forEach(strip => {
+    const kind = strip.dataset.kind, big = kind === 'band' || kind === 'stack';
+    for (let i = 0; i < (big ? 3 : 9); i++) {
+      const h = document.createElement('div');
+      h.className = 'handle' + (big ? ' big' : '');
+      h.dataset.kind = kind; h.dataset.idx = i;
+      h.textContent = '⠿';
+      h.title = { row: 'Drag onto another row of the same band', col: 'Drag onto another column of the same stack',
+                  band: 'Drag onto another band of sub-squares', stack: 'Drag onto another stack of sub-squares' }[kind];
+      h.addEventListener('pointerdown', e => {
+        if (same(grid, target)) return;
+        e.preventDefault(); sel = null;
+        drag = { kind, idx: i, over: null };
+        document.body.classList.add('dragging');
+        render();
+      });
+      strip.appendChild(h);
+    }
+  });
+  const dragOver = e => {
+    const h = document.elementFromPoint(e.clientX, e.clientY)?.closest('.handle');
+    const over = h && h.dataset.kind === drag.kind && dragValid(drag.kind, drag.idx, +h.dataset.idx) ? +h.dataset.idx : null;
+    if (over !== drag.over) { drag.over = over; render(); }
+  };
+  window.addEventListener('pointermove', e => { if (drag) dragOver(e); });
+  const endDrag = (e, cancel) => {
+    if (!drag) return;
+    if (!cancel) dragOver(e);
+    const d = drag; drag = null;
+    document.body.classList.remove('dragging');
+    if (!cancel && d.over != null) commit(ops[d.kind](grid, d.idx, d.over)); else render();
+  };
+  window.addEventListener('pointerup', e => endDrag(e, false));
+  window.addEventListener('pointercancel', e => endDrag(e, true));
 
   buildBoard($('cur'), onCell);
   buildBoard($('tgt'));
