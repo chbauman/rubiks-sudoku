@@ -166,25 +166,25 @@
     col(g, c1, c2) { const n = clone(g); n.forEach(r => [r[c1], r[c2]] = [r[c2], r[c1]]); return n; },
     band(g, b1, b2) { let n = clone(g); for (let i = 0; i < 3; i++) n = ops.row(n, 3 * b1 + i, 3 * b2 + i); return n; },
     stack(g, s1, s2) { let n = clone(g); for (let i = 0; i < 3; i++) n = ops.col(n, 3 * s1 + i, 3 * s2 + i); return n; },
-    // Swap two cells in the same sub-square (same row or column). Conflicts are resolved by
-    // swapping the two values in every cell of the connected chain of those two values — but only
-    // within the two affected columns (horizontal move) or rows (vertical move).
-    // Returns null if the conflicts cannot be resolved within those two columns / rows.
+    // Swap two cells in the same sub-square (same row or column). The resulting conflicts are
+    // resolved using only the two affected columns (horizontal move) or rows (vertical move):
+    // the two columns exchange their entries in every row of the cycle that the swapped row
+    // belongs to. In the worst case that cycle is everything, i.e. the two whole columns are swapped.
     number(g, [r1, c1], [r2, c2]) {
-      const a = g[r1][c1], b = g[r2][c2];
-      const n = clone(g);
-      const linked = (p, q) => p[0] === q[0] || p[1] === q[1] ||
-        (Math.floor(p[0] / 3) === Math.floor(q[0] / 3) && Math.floor(p[1] / 3) === Math.floor(q[1] / 3));
-      const cells = [];
-      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
-        if ((g[r][c] === a || g[r][c] === b) && (r1 === r2 ? (c === c1 || c === c2) : (r === r1 || r === r2))) cells.push([r, c]);
-      const seen = new Set([r1 * N + c1]), queue = [[r1, c1]];
-      while (queue.length) {
-        const p = queue.pop();
-        for (const q of cells) if (!seen.has(q[0] * N + q[1]) && linked(p, q)) { seen.add(q[0] * N + q[1]); queue.push(q); }
+      if (r1 !== r2) { // vertical move: do the horizontal logic on the transposed grid
+        const t = g.map((_, r) => g.map((_, c) => g[c][r]));
+        const n = ops.number(t, [c1, r1], [c2, r2]);
+        return n.map((_, r) => n.map((_, c) => n[c][r]));
       }
-      for (const k of seen) { const r = Math.floor(k / N), c = k % N; n[r][c] = g[r][c] === a ? b : a; }
-      return isValid(n) ? n : null;
+      const n = clone(g);
+      let cur = r1;
+      do {
+        [n[cur][c1], n[cur][c2]] = [n[cur][c2], n[cur][c1]];
+        // c1 now holds g[cur][c2] twice; fix the row that originally had it in c1
+        const dup = g[cur][c2];
+        cur = g.findIndex(row => row[c1] === dup);
+      } while (cur !== r1);
+      return n;
     },
   };
 
@@ -192,7 +192,7 @@
   function validPair(mode, [r1, c1], [r2, c2]) {
     const [br1, bc1] = box(r1, c1), [br2, bc2] = box(r2, c2);
     switch (mode) {
-      case 'number': return br1 === br2 && bc1 === bc2 && (r1 === r2) !== (c1 === c2) && !!ops.number(grid, [r1, c1], [r2, c2]);
+      case 'number': return br1 === br2 && bc1 === bc2 && (r1 === r2) !== (c1 === c2);
       case 'row': return br1 === br2 && r1 !== r2;
       case 'col': return bc1 === bc2 && c1 !== c2;
       case 'band': return br1 !== br2;
@@ -222,7 +222,7 @@
   // ---- state ----
   let start, target, grid, history, mode = 'number', sel = null, moves = 0, drag = null;
   const hints = {
-    number: 'Pick a cell, then another in the same sub-square and the same row or column. Conflicts are resolved automatically, using only the two affected columns (or rows). Moves that cannot be resolved that way are not allowed.',
+    number: 'Pick a cell, then another in the same sub-square and the same row or column. Conflicts are resolved automatically, using only the two affected columns (or rows).',
     row: 'Pick a cell, then a cell in a different row of the same band of sub-squares.',
     col: 'Pick a cell, then a cell in a different column of the same stack of sub-squares.',
     band: 'Pick a cell, then a cell in a different band (three rows) to swap the two bands.',
@@ -245,7 +245,7 @@
         else {
           const br = rnd(3), bc = rnd(3), a = [3 * br + rnd(3), 3 * bc + rnd(3)];
           const b = rnd(2) ? [a[0], 3 * bc + (a[1] % 3 + 1 + rnd(2)) % 3] : [3 * br + (a[0] % 3 + 1 + rnd(2)) % 3, a[1]];
-          target = ops.number(target, a, b) || target; // skipped if not resolvable within the two columns/rows
+          target = ops.number(target, a, b);
         }
       }
     }
