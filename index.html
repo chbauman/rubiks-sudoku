@@ -75,8 +75,8 @@
       <div class="strip top" data-kind="col"></div>
       <div class="strip left" data-kind="row"></div>
       <div id="cur" class="board"></div>
-      <div class="strip right" data-kind="stack"></div>
-      <div class="strip bottom" data-kind="band"></div>
+      <div class="strip right" data-kind="band"></div>
+      <div class="strip bottom" data-kind="stack"></div>
     </div></div>
   <div class="board-wrap"><h2>Target</h2><div id="tgt" class="board small"></div></div>
 </div>
@@ -282,17 +282,21 @@
 
   function render() {
     const won = same(grid, target);
-    paint($('cur'), grid, (r, c) => {
+    // live preview: while hovering a valid drop target, show the board as it would look after the swap
+    const preview = drag && drag.over != null;
+    const disp = preview ? ops[drag.kind](grid, drag.idx, drag.over) : grid;
+    paint($('cur'), disp, (r, c) => {
       if (drag) {
-        if (inDragUnit(drag.kind, drag.idx, r, c)) return 'sel';
-        if (drag.over != null && inDragUnit(drag.kind, drag.over, r, c)) return 'hl';
+        if (preview && inDragUnit(drag.kind, drag.over, r, c)) return 'sel'; // dragged unit, now at its new spot
+        if (preview && inDragUnit(drag.kind, drag.idx, r, c)) return 'hl';
+        if (!preview && inDragUnit(drag.kind, drag.idx, r, c)) return 'sel';
       }
       if (sel) {
         if (r === sel[0] && c === sel[1]) return 'sel';
         if (inUnit(mode, sel, r, c)) return 'sel';
         if (validPair(mode, sel, [r, c])) return 'hl';
       }
-      return grid[r][c] === target[r][c] ? 'match' : '';
+      return disp[r][c] === target[r][c] ? 'match' : '';
     });
     paint($('tgt'), target);
     const st = $('status');
