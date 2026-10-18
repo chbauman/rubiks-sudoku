@@ -199,7 +199,6 @@
     });
     $('resolution').textContent = 'Conflict resolution: ' + resolutionInfo[resolution][0];
     $('resolution').title = resolutionInfo[resolution][1];
-    $('resolutionInfo').textContent = resolutionInfo[resolution][1];
     $('undo').disabled = !history.length;
   }
 
@@ -263,6 +262,44 @@
   $('resolution').onclick = () => { resolution = resolution === 'columns' ? 'chain' : 'columns'; render(); };
   $('reset').onclick = restart;
   $('new').onclick = newGame;
+
+  // ---- pages: the game, the help and the about page are selected by the URL hash (#help, #about),
+  // so the browser's back button returns to the game
+  const TITLES = { game: "Rubik's Sudoku", help: 'Help', about: 'About' };
+  const currentPage = () => { const p = location.hash.slice(1); return p in TITLES ? p : 'game'; };
+  const closeMenu = () => { $('menu').hidden = true; $('menu-btn').setAttribute('aria-expanded', 'false'); };
+  function showPage() {
+    const page = currentPage();
+    document.querySelectorAll('[data-page]').forEach(el => { el.hidden = el.dataset.page !== page; });
+    $('page-title').textContent = TITLES[page];
+    $('logo').hidden = page !== 'game';
+    $('back-btn').hidden = page === 'game';
+    closeMenu();
+    window.scrollTo(0, 0);
+  }
+  // history is [game, subpage] at most: opening a subpage from another one replaces the entry
+  let prevPage = currentPage(), cameFromGame = false;
+  window.addEventListener('hashchange', () => {
+    const page = currentPage();
+    if (page === 'game') cameFromGame = false;
+    else if (prevPage === 'game') cameFromGame = true;
+    prevPage = page;
+    showPage();
+  });
+  // (`history` is the list of moves in this file, so the browser's history is window.history)
+  $('back-btn').onclick = () => { if (cameFromGame) window.history.back(); else location.hash = ''; };
+  $('menu-btn').onclick = () => {
+    const open = $('menu').hidden;
+    $('menu').hidden = !open;
+    $('menu-btn').setAttribute('aria-expanded', String(open));
+  };
+  $('menu').addEventListener('click', e => {
+    const link = e.target.closest('a');
+    if (link && currentPage() !== 'game') { e.preventDefault(); location.replace(link.getAttribute('href')); }
+  });
+  document.addEventListener('click', e => { if (!e.target.closest('#menu-btn')) closeMenu(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+  showPage();
   window.__rs = { ops, isValid, generate }; // handy for debugging in the console
   newGame();
 })();

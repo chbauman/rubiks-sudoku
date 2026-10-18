@@ -14,3 +14,8 @@ with elementary operations into the second one without ever having an invalid su
 - Exchange two numbers within a sub-square that are in the same row or column
   - Automatically resolving resulting conflicts
  
+
+## Pages
+
+The main page only shows the title, the game and its buttons. The menu in the corner opens the Help page (how to
+play, the moves, the conflict resolution) and the About page (links to the sources and the author).

@@ -8,11 +8,17 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<h1><img class="logo" src="logo.svg" alt="" width="36" height="36"> Rubik's Sudoku</h1>
-<p class="sub">Turn the sudoku into the target — the small pencil marks in each cell's bottom-right corner —
-  keeping it valid after every move. Drag the left / top grips to swap rows / columns, the bigger bottom / right
-  grips to swap sub-square rows / columns, and a number onto a neighbour in its sub-square to swap numbers.</p>
+<header class="bar">
+  <button id="back-btn" class="icon-btn" title="Back" aria-label="Back" hidden><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
+  <h1><img class="logo" id="logo" src="logo.svg" alt="" width="36" height="36"> <span id="page-title">Rubik's Sudoku</span></h1>
+  <button id="menu-btn" class="icon-btn" title="Menu" aria-label="Menu" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg></button>
+  <nav id="menu" hidden>
+    <a href="#help">Help</a>
+    <a href="#about">About</a>
+  </nav>
+</header>
 
+<main data-page="game">
 <div class="frame" id="frame">
   <div class="strip top" data-kind="col"></div>
   <div class="strip left" data-kind="row"></div>
@@ -34,8 +40,7 @@
   <div class="row">
     <button id="resolution"></button>
   </div>
-  <div class="hint" id="resolutionInfo"></div>
-  <div class="row">
+    <div class="row">
     <select id="kind" aria-label="Game type">
       <option value="random">Two random sudokus</option>
       <option value="5">Scrambled — 5 moves</option>
@@ -45,6 +50,51 @@
     <button id="new">New game</button>
   </div>
 </div>
+</main>
+
+<section class="page" id="help" data-page="help" hidden>
+  <h2>Goal</h2>
+  <p>The board shows a solved sudoku. The small digit in the bottom-right corner of every cell is the digit that cell has
+    in the target, a second solved sudoku. Turn the board into the target using the moves below. The sudoku stays valid
+    after every move. Cells that already match the target are green.</p>
+
+  <h2>Moves</h2>
+  <ul>
+    <li><b>Rows and columns.</b> Drag the grip on the left of a row onto another row of the same band of three rows, to
+      swap them. The grips on top do the same for columns within a stack of three columns.</li>
+    <li><b>Bands and stacks.</b> The bigger grips on the right and at the bottom swap whole bands (three rows of
+      sub-squares) or stacks (three columns of sub-squares).</li>
+    <li><b>Numbers.</b> Drag a number onto another cell of its sub-square (in the same row or column) to swap the two
+      numbers. This breaks the sudoku, so the conflicts are resolved automatically, see below. While you drag, the board
+      shows the result, and the cells that change are highlighted.</li>
+    <li><b>Whole board.</b> The buttons rotate it by 90° in either direction or flip it horizontally or vertically.</li>
+    <li><b>Undo</b> takes back the last move, <b>Restart</b> goes back to the start of the game.</li>
+  </ul>
+
+  <h2>Conflict resolution</h2>
+  <p>The button <b>Conflict resolution</b> below the board switches between two ways to repair the sudoku after a number
+    swap:</p>
+  <ul>
+    <li><b>Two columns / rows.</b> Only numbers in the same row or column of a sub-square can be swapped. The conflicts
+      are resolved by exchanging entries only between the two affected columns (or rows).</li>
+    <li><b>Whole chain.</b> Any two numbers of a sub-square can be swapped. The conflicts are resolved by swapping the
+      two numbers in every cell they chain through, anywhere on the board.</li>
+  </ul>
+
+  <h2>Games</h2>
+  <ul>
+    <li><b>Two random sudokus.</b> The start and the target are unrelated, so this can take many moves.</li>
+    <li><b>Scrambled.</b> The target is the start with 5, 15 or 40 random moves applied, so it can be reached in at most
+      that many moves.</li>
+  </ul>
+  <p>When the board equals the target, the game shows how many moves you needed.</p>
+</section>
+
+<section class="page" id="about" data-page="about" hidden>
+  <p>Rubik's Sudoku is open source: the
+    <a href="https://github.com/chbauman/rubiks-sudoku" target="_blank" rel="noopener">sources are on GitHub</a>.</p>
+  <p>Made by <a href="https://chrisbaumann.ch/" target="_blank" rel="noopener">chrisbaumann.ch</a>.</p>
+</section>
 
 <script src="app.js"></script>
 </body>
