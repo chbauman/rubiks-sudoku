@@ -10,7 +10,7 @@
 <body>
 <header class="bar">
   <button id="back-btn" class="icon-btn" title="Back" aria-label="Back" hidden><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg></button>
-  <h1><img class="logo" id="logo" src="logo.svg" alt="" width="36" height="36"> <span id="page-title">Rubik's Sudoku</span></h1>
+  <h1 id="page-title">Rubik's Sudoku</h1>
   <button id="menu-btn" class="icon-btn" title="Menu" aria-label="Menu" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg></button>
   <nav id="menu" hidden>
     <a href="#help">Help</a>
@@ -35,22 +35,45 @@
     <button id="flipH" class="icon" title="Flip horizontally" aria-label="Flip horizontally"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 7 5 5-5 5V7"/><path d="m21 7-5 5 5 5V7"/><path d="M12 20v2"/><path d="M12 14v2"/><path d="M12 8v2"/><path d="M12 2v2"/></svg></button>
     <button id="flipV" class="icon" title="Flip vertically" aria-label="Flip vertically"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 3-5 5-5-5h10"/><path d="m17 21-5-5-5 5h10"/><path d="M4 12H2"/><path d="M10 12H8"/><path d="M16 12h-2"/><path d="M22 12h-2"/></svg></button>
     <button id="undo">Undo</button>
-    <button id="reset">Restart</button>
   </div>
-  <div class="row">
+  <div class="row" id="resolution-row" hidden>
     <button id="resolution"></button>
   </div>
-    <div class="row">
-    <select id="kind" aria-label="Game type">
-      <option value="random">Two random sudokus</option>
-      <option value="5">Scrambled — 5 moves</option>
-      <option value="15" selected>Scrambled — 15 moves</option>
-      <option value="40">Scrambled — 40 moves</option>
-    </select>
+  <div class="mode" id="mode" hidden></div>
+  <div class="row">
+    <button id="reset">Restart</button>
     <button id="new">New game</button>
   </div>
 </div>
 </main>
+
+<dialog id="restart-dialog" aria-labelledby="restart-title">
+  <h2 id="restart-title">Restart game?</h2>
+  <p id="restart-text"></p>
+  <div class="dialog-buttons">
+    <button id="restart-cancel" type="button">Cancel</button>
+    <button id="restart-yes" type="button" class="primary">Restart</button>
+  </div>
+</dialog>
+
+<dialog id="new-dialog" aria-labelledby="new-title">
+  <h2 id="new-title">New game</h2>
+  <fieldset>
+    <legend>Game type</legend>
+    <label><input type="radio" name="kind" value="random"> Two random sudokus</label>
+    <label><input type="radio" name="kind" value="5"> Scrambled, 5 moves</label>
+    <label><input type="radio" name="kind" value="15" checked> Scrambled, 15 moves</label>
+    <label><input type="radio" name="kind" value="40"> Scrambled, 40 moves</label>
+  </fieldset>
+  <fieldset id="resolution-options">
+    <legend>Conflict resolution</legend>
+  </fieldset>
+  <p id="new-warning" class="warning" hidden></p>
+  <div class="dialog-buttons">
+    <button id="new-cancel" type="button">Cancel</button>
+    <button id="new-start" type="button" class="primary">Start</button>
+  </div>
+</dialog>
 
 <section class="page" id="help" data-page="help" hidden>
   <h2>Goal</h2>
@@ -68,24 +91,33 @@
       numbers. This breaks the sudoku, so the conflicts are resolved automatically, see below. While you drag, the board
       shows the result, and the cells that change are highlighted.</li>
     <li><b>Whole board.</b> The buttons rotate it by 90° in either direction or flip it horizontally or vertically.</li>
-    <li><b>Undo</b> takes back the last move, <b>Restart</b> goes back to the start of the game.</li>
+    <li><b>Undo</b> takes back the last move, <b>Restart</b> goes back to the start of the game (after asking, because
+      your moves are lost).</li>
   </ul>
 
   <h2>Conflict resolution</h2>
-  <p>The button <b>Conflict resolution</b> below the board switches between two ways to repair the sudoku after a number
-    swap:</p>
+  <p>There are two ways to repair the sudoku after a number swap:</p>
   <ul>
     <li><b>Two columns / rows.</b> Only numbers in the same row or column of a sub-square can be swapped. The conflicts
       are resolved by exchanging entries only between the two affected columns (or rows).</li>
     <li><b>Whole chain.</b> Any two numbers of a sub-square can be swapped. The conflicts are resolved by swapping the
       two numbers in every cell they chain through, anywhere on the board.</li>
   </ul>
+  <p>In a game of two random sudokus, and in a scrambled game with the way <b>Both</b>, the button
+    <b>Conflict resolution</b> below the board shows the way in use and switches it at any time. In a scrambled game
+    with one way the target was scrambled in that way, so it stays the same during the game and is shown instead of the
+    button. You choose the way in the <b>New game</b> dialog. The game type and the way are
+    remembered.</p>
 
-  <h2>Games</h2>
+  <h2>New game</h2>
+  <p>The <b>New game</b> button opens a dialog with the options of the game (starting it loses the current game):</p>
   <ul>
     <li><b>Two random sudokus.</b> The start and the target are unrelated, so this can take many moves.</li>
     <li><b>Scrambled.</b> The target is the start with 5, 15 or 40 random moves applied, so it can be reached in at most
-      that many moves.</li>
+      that many moves. The number swaps among them use the way of conflict resolution that you choose: one of the two,
+      or both (each swap uses one of them at random). With the way <b>None</b> there are no number swaps at all: the
+      target is scrambled with rows, columns, bands, stacks, rotations and flips only, and the numbers cannot be moved
+      in this game.</li>
   </ul>
   <p>When the board equals the target, the game shows how many moves you needed.</p>
 </section>

@@ -108,17 +108,26 @@
   }
 
   // ---- state ----
-  let start, target, grid, history, moves = 0, drag = null;
+  // gameKind: 'random' or the number of scrambling moves; way: how the scrambled games resolve the conflicts
+  // ('columns', 'chain' or 'both'), gameWay: the way of the running game
+  let start, target, grid, history, moves = 0, drag = null, gameKind = '15', way = 'columns', gameWay = 'columns';
+
+  // no number can be moved in a scrambled game of the way 'none'
+  const numbersLocked = () => gameKind !== 'random' && gameWay === 'none';
 
   function newGame() {
-    const kind = $('kind').value;
+    const kind = checkedKind();
+    gameKind = kind;
+    gameWay = way;
+    // a fixed way is the way of the game; with 'both' and for random sudokus the player chooses (see the button)
+    if (kind !== 'random' && resolutionInfo[way]) resolution = way;  // not for 'both' and 'none'
     start = generate();
     if (kind === 'random') target = generate();
     else {
       target = clone(start);
       const simple = ['rotR', 'rotL', 'flipH', 'flipV'];
       for (let i = 0; i < +kind; i++) {
-        const t = rnd(5);
+        const t = rnd(way === 'none' ? 4 : 5);  // 4 is the number swap
         if (t === 0) target = ops[simple[rnd(4)]](target);
         else if (t === 1) { const b = rnd(3), [x, y] = shuffle([0, 1, 2]); target = ops.row(target, 3 * b + x, 3 * b + y); }
         else if (t === 2) { const b = rnd(3), [x, y] = shuffle([0, 1, 2]); target = ops.col(target, 3 * b + x, 3 * b + y); }
@@ -126,7 +135,7 @@
         else {
           const br = rnd(3), bc = rnd(3), a = [3 * br + rnd(3), 3 * bc + rnd(3)];
           const b = rnd(2) ? [a[0], 3 * bc + (a[1] % 3 + 1 + rnd(2)) % 3] : [3 * br + (a[0] % 3 + 1 + rnd(2)) % 3, a[1]];
-          target = ops.number(target, a, b);
+          target = ops.number(target, a, b, way === 'both' ? (rnd(2) ? 'columns' : 'chain') : resolution);
         }
       }
     }
@@ -146,7 +155,7 @@
       d.className = 'cell' + (c % 3 === 2 && c < 8 ? ' br' : '') + (r % 3 === 2 && r < 8 ? ' bb' : '');
       if (interactive) {
         d.onpointerdown = () => {  // drag a number onto another cell of its sub-square (same row/column)
-          if (same(grid, target)) return;
+          if (same(grid, target) || numbersLocked()) return;
           drag = { kind: 'number', from: [r, c], over: null };
           document.body.classList.add('dragging');
           render();
@@ -197,8 +206,18 @@
       // while dragging a unit, only grips it can actually be dropped on stay enabled
       h.classList.toggle('disabled', !!unit && !(mine && (i === drag.idx || dragValid(drag.kind, drag.idx, i))));
     });
+    // the player can switch the way of resolving in a game of two random sudokus and in a scrambled game with both
+    // ways; in the other scrambled games it is fixed, as the target was scrambled in that way
+    const canSwitch = gameKind === 'random' || gameWay === 'both';
+    $('cur').classList.toggle('no-swaps', numbersLocked());
+    $('resolution-row').hidden = !canSwitch;
     $('resolution').textContent = 'Conflict resolution: ' + resolutionInfo[resolution][0];
     $('resolution').title = resolutionInfo[resolution][1];
+    // the way of a fixed game is shown as an indicator instead of the button
+    $('mode').hidden = canSwitch;
+    $('mode').textContent = numbersLocked() ? 'Numbers cannot be moved (no conflict resolution)'
+      : 'Conflict resolution: ' + resolutionInfo[resolution][0] + ' (fixed)';
+    $('mode').title = numbersLocked() ? wayInfo.none[1] : resolutionInfo[resolution][1];
     $('undo').disabled = !history.length;
   }
 
@@ -259,9 +278,75 @@
   buildBoard($('cur'), true);
   for (const k of ['rotL', 'rotR', 'flipH', 'flipV']) $(k).onclick = () => { if (!same(grid, target)) commit(ops[k](grid)); };
   $('undo').onclick = () => { if (history.length) { grid = history.pop(); moves--; render(); } };
-  $('resolution').onclick = () => { resolution = resolution === 'columns' ? 'chain' : 'columns'; render(); };
-  $('reset').onclick = restart;
-  $('new').onclick = newGame;
+
+  // ---- dialogs: restart (asks, as the moves are lost) and new game (with the options of the game)
+  const checkedKind = () => document.querySelector('input[name="kind"]:checked').value;
+  const inProgress = () => moves > 0 && !same(grid, target);
+  const movesText = n => `${n} move${n === 1 ? '' : 's'}`;
+  for (const dlg of document.querySelectorAll('dialog')) {
+    dlg.addEventListener('click', e => {  // a click on the backdrop closes the dialog
+      const r = dlg.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dlg.close();
+    });
+  }
+  $('reset').onclick = () => {
+    if (!inProgress()) return restart();
+    $('restart-text').textContent = `The ${movesText(moves)} you made in this game are lost.`;
+    $('restart-dialog').showModal();
+  };
+  $('restart-cancel').onclick = () => $('restart-dialog').close();
+  $('restart-yes').onclick = () => { $('restart-dialog').close(); restart(); };
+
+  const wayInfo = {
+    ...resolutionInfo,
+    both: ['Both', 'The target is scrambled with either way, and you can switch between them during the game.'],
+    none: ['None', 'The numbers cannot be moved: the target is scrambled with rows, columns, bands, stacks, rotations and flips only.'],
+  };
+  for (const [value, [name, info]] of Object.entries(wayInfo)) {
+    const label = document.createElement('label');
+    label.innerHTML = '<input type="radio" name="resolution" value="' + value + '"> <span></span>';
+    label.lastChild.innerHTML = '<b></b><br><small></small>';
+    label.lastChild.children[0].textContent = name;
+    label.lastChild.children[2].textContent = info;
+    $('resolution-options').appendChild(label);
+  }
+  $('new').onclick = () => {
+    document.querySelector('input[name="resolution"][value="' + way + '"]').checked = true;
+    document.querySelector('input[name="kind"][value="' + gameKind + '"]').checked = true;  // not a cancelled choice
+    const warning = $('new-warning');
+    warning.hidden = !inProgress();
+    warning.textContent = `Starting a new game loses the current one, with its ${movesText(moves)}.`;
+    syncResolutionOptions();
+    $('new-dialog').showModal();
+  };
+  $('new-cancel').onclick = () => $('new-dialog').close();
+  $('new-start').onclick = () => {
+    // for two random sudokus the way is not chosen here (the button on the page does it)
+    if (checkedKind() !== 'random') way = document.querySelector('input[name="resolution"]:checked').value;
+    $('new-dialog').close();
+    newGame();
+    saveOptions();
+  };
+  // the way of resolving is only an option of the scrambled games
+  const syncResolutionOptions = () => { $('resolution-options').hidden = checkedKind() === 'random'; };
+  document.querySelectorAll('input[name="kind"]').forEach(r => r.addEventListener('change', syncResolutionOptions));
+  $('resolution').onclick = () => { resolution = resolution === 'columns' ? 'chain' : 'columns'; saveOptions(); render(); };
+
+  // ---- the used options (game type and way of resolving) are saved
+  const OPTIONS_KEY = 'rubiks-sudoku:options:v1';
+  function saveOptions() {
+    try { localStorage.setItem(OPTIONS_KEY, JSON.stringify({ kind: gameKind, way, resolution })); } catch (e) {}
+  }
+  function loadOptions() {
+    try {
+      const o = JSON.parse(localStorage.getItem(OPTIONS_KEY));
+      if (o && resolutionInfo[o.resolution]) resolution = o.resolution;
+      if (o && wayInfo[o.way]) way = o.way;
+      const radio = o && document.querySelector('input[name="kind"][value="' + o.kind + '"]');
+      if (radio) radio.checked = true;
+    } catch (e) {}
+    syncResolutionOptions();
+  }
 
   // ---- pages: the game, the help and the about page are selected by the URL hash (#help, #about),
   // so the browser's back button returns to the game
@@ -272,7 +357,6 @@
     const page = currentPage();
     document.querySelectorAll('[data-page]').forEach(el => { el.hidden = el.dataset.page !== page; });
     $('page-title').textContent = TITLES[page];
-    $('logo').hidden = page !== 'game';
     $('back-btn').hidden = page === 'game';
     closeMenu();
     window.scrollTo(0, 0);
@@ -301,5 +385,6 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
   showPage();
   window.__rs = { ops, isValid, generate }; // handy for debugging in the console
+  loadOptions();
   newGame();
 })();
