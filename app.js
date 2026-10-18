@@ -207,8 +207,11 @@
     // ways; in the other scrambled games it is fixed, as the target was scrambled in that way
     const canSwitch = gameKind === 'random' || gameWay === 'both';
     $('resolution-row').hidden = !canSwitch;
-    $('mode').textContent = (gameKind === 'random' ? 'Two random sudokus' : 'Scrambled, ' + gameKind + ' moves') +
-      ' · ' + resolutionInfo[resolution][0] + (canSwitch ? '' : ' (fixed)');
+    $('resolution').textContent = 'Conflict resolution: ' + resolutionInfo[resolution][0];
+    $('resolution').title = resolutionInfo[resolution][1];
+    // the way of a fixed game is shown as an indicator instead of the button
+    $('mode').hidden = canSwitch;
+    $('mode').textContent = 'Conflict resolution: ' + resolutionInfo[resolution][0] + ' (fixed)';
     $('mode').title = resolutionInfo[resolution][1];
     $('undo').disabled = !history.length;
   }
