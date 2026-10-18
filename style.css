@@ -9,10 +9,30 @@
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg);
        font: 16px/1.4 system-ui, sans-serif; }
-h1 { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; font-size: 1.5rem; }
-p.sub { margin: 0 0 8px; font-size: .9rem; color: var(--muted); }
+/* Page header: back button | title | menu button */
+.bar { position: relative; max-width: 760px; margin: 0 auto 12px; display: grid;
+       grid-template-columns: 48px 1fr 48px; align-items: center; }
+h1 { grid-column: 2; display: flex; align-items: center; justify-content: center; gap: 10px;
+     margin: 0; font-size: 1.5rem; }
+button.icon-btn { border: none; background: none; padding: 8px; display: flex; justify-self: center;
+                  align-items: center; justify-content: center; border-radius: 8px; }
+button.icon-btn:hover { background: var(--card); }
+#back-btn { grid-column: 1; grid-row: 1; }
+#menu-btn { grid-column: 3; grid-row: 1; }
+#menu { position: absolute; right: 0; top: 100%; z-index: 5; min-width: 150px; padding: 4px;
+        display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line);
+        border-radius: 10px; box-shadow: 0 4px 14px rgb(0 0 0 / .18); }
+#menu a { padding: 10px 14px; border-radius: 8px; color: var(--fg); text-decoration: none; }
+#menu a:hover { background: var(--bg); }
+/* Help and About pages */
+.page { max-width: 640px; margin: 0 auto; }
+.page h2 { margin: 22px 0 6px; font-size: 1.15rem; }
+.page p, .page li { margin: 0 0 8px; }
+.page ul { margin: 0 0 8px; padding-left: 22px; }
+.page a { color: var(--accent); }
 .board { display: grid; grid-template-columns: repeat(9, 1fr); width: min(92vw, 420px);
          aspect-ratio: 1; background: var(--card); border: 2px solid var(--thick); }
 .cell { display: flex; align-items: center; justify-content: center; font-size: clamp(14px, 4.6vw, 24px);
