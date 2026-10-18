@@ -108,11 +108,16 @@
   }
 
   // ---- state ----
-  let start, target, grid, history, moves = 0, drag = null, gameKind = '15';
+  // gameKind: 'random' or the number of scrambling moves; way: how the scrambled games resolve the conflicts
+  // ('columns', 'chain' or 'both'), gameWay: the way of the running game
+  let start, target, grid, history, moves = 0, drag = null, gameKind = '15', way = 'columns', gameWay = 'columns';
 
   function newGame() {
     const kind = checkedKind();
     gameKind = kind;
+    gameWay = way;
+    // a fixed way is the way of the game; with 'both' and for random sudokus the player chooses (see the button)
+    if (kind !== 'random' && way !== 'both') resolution = way;
     start = generate();
     if (kind === 'random') target = generate();
     else {
@@ -127,7 +132,7 @@
         else {
           const br = rnd(3), bc = rnd(3), a = [3 * br + rnd(3), 3 * bc + rnd(3)];
           const b = rnd(2) ? [a[0], 3 * bc + (a[1] % 3 + 1 + rnd(2)) % 3] : [3 * br + (a[0] % 3 + 1 + rnd(2)) % 3, a[1]];
-          target = ops.number(target, a, b);
+          target = ops.number(target, a, b, way === 'both' ? (rnd(2) ? 'columns' : 'chain') : resolution);
         }
       }
     }
@@ -198,10 +203,13 @@
       // while dragging a unit, only grips it can actually be dropped on stay enabled
       h.classList.toggle('disabled', !!unit && !(mine && (i === drag.idx || dragValid(drag.kind, drag.idx, i))));
     });
-    // a game of two random sudokus can use either way of resolving, in a scrambled game it is fixed
-    $('resolution-row').hidden = gameKind !== 'random';
-    $('resolution').textContent = 'Conflict resolution: ' + resolutionInfo[resolution][0];
-    $('resolution').title = resolutionInfo[resolution][1];
+    // the player can switch the way of resolving in a game of two random sudokus and in a scrambled game with both
+    // ways; in the other scrambled games it is fixed, as the target was scrambled in that way
+    const canSwitch = gameKind === 'random' || gameWay === 'both';
+    $('resolution-row').hidden = !canSwitch;
+    $('mode').textContent = (gameKind === 'random' ? 'Two random sudokus' : 'Scrambled, ' + gameKind + ' moves') +
+      ' · ' + resolutionInfo[resolution][0] + (canSwitch ? '' : ' (fixed)');
+    $('mode').title = resolutionInfo[resolution][1];
     $('undo').disabled = !history.length;
   }
 
@@ -281,7 +289,11 @@
   $('restart-cancel').onclick = () => $('restart-dialog').close();
   $('restart-yes').onclick = () => { $('restart-dialog').close(); restart(); };
 
-  for (const [value, [name, info]] of Object.entries(resolutionInfo)) {
+  const wayInfo = {
+    ...resolutionInfo,
+    both: ['Both', 'The target is scrambled with either way, and you can switch between them during the game.'],
+  };
+  for (const [value, [name, info]] of Object.entries(wayInfo)) {
     const label = document.createElement('label');
     label.innerHTML = '<input type="radio" name="resolution" value="' + value + '"> <span></span>';
     label.lastChild.innerHTML = '<b></b><br><small></small>';
@@ -290,7 +302,7 @@
     $('resolution-options').appendChild(label);
   }
   $('new').onclick = () => {
-    document.querySelector('input[name="resolution"][value="' + resolution + '"]').checked = true;
+    document.querySelector('input[name="resolution"][value="' + way + '"]').checked = true;
     document.querySelector('input[name="kind"][value="' + gameKind + '"]').checked = true;  // not a cancelled choice
     const warning = $('new-warning');
     warning.hidden = !inProgress();
@@ -301,7 +313,7 @@
   $('new-cancel').onclick = () => $('new-dialog').close();
   $('new-start').onclick = () => {
     // for two random sudokus the way is not chosen here (the button on the page does it)
-    if (checkedKind() !== 'random') resolution = document.querySelector('input[name="resolution"]:checked').value;
+    if (checkedKind() !== 'random') way = document.querySelector('input[name="resolution"]:checked').value;
     $('new-dialog').close();
     newGame();
     saveOptions();
@@ -314,12 +326,13 @@
   // ---- the used options (game type and way of resolving) are saved
   const OPTIONS_KEY = 'rubiks-sudoku:options:v1';
   function saveOptions() {
-    try { localStorage.setItem(OPTIONS_KEY, JSON.stringify({ kind: gameKind, resolution })); } catch (e) {}
+    try { localStorage.setItem(OPTIONS_KEY, JSON.stringify({ kind: gameKind, way, resolution })); } catch (e) {}
   }
   function loadOptions() {
     try {
       const o = JSON.parse(localStorage.getItem(OPTIONS_KEY));
       if (o && resolutionInfo[o.resolution]) resolution = o.resolution;
+      if (o && wayInfo[o.way]) way = o.way;
       const radio = o && document.querySelector('input[name="kind"][value="' + o.kind + '"]');
       if (radio) radio.checked = true;
     } catch (e) {}

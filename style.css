@@ -77,7 +77,7 @@ button:disabled { opacity: .5; cursor: default; }
 button.icon { width: 40px; height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 button.icon svg { display: block; }
 /* Dialogs: restart and new game */
-dialog { max-width: min(92vw, 420px); padding: 18px 20px; border: 1px solid var(--line); border-radius: 12px;
+dialog { width: min(92vw, 420px); padding: 18px 20px; border: 1px solid var(--line); border-radius: 12px;
          background: var(--card); color: var(--fg); box-shadow: 0 8px 30px rgb(0 0 0 / .3); }
 dialog::backdrop { background: rgb(0 0 0 / .45); }
 dialog h2 { margin: 0 0 10px; font-size: 1.2rem; }
@@ -92,3 +92,4 @@ dialog .warning { padding: 8px 10px; border-radius: 8px; background: color-mix(i
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.primary:hover { filter: brightness(1.1); }
 @media (prefers-color-scheme: dark) { button.primary { color: #10131a; } }
+.mode { text-align: center; color: var(--muted); font-size: .9rem; min-height: 1.3em; }
