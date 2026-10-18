@@ -36,6 +36,9 @@
     <button id="flipV" class="icon" title="Flip vertically" aria-label="Flip vertically"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 3-5 5-5-5h10"/><path d="m17 21-5-5-5 5h10"/><path d="M4 12H2"/><path d="M10 12H8"/><path d="M16 12h-2"/><path d="M22 12h-2"/></svg></button>
     <button id="undo">Undo</button>
   </div>
+  <div class="row" id="resolution-row" hidden>
+    <button id="resolution"></button>
+  </div>
   <div class="row">
     <button id="reset">Restart</button>
     <button id="new">New game</button>
@@ -92,13 +95,16 @@
   </ul>
 
   <h2>Conflict resolution</h2>
-  <p>There are two ways to repair the sudoku after a number swap. You choose one in the <b>New game</b> dialog:</p>
+  <p>There are two ways to repair the sudoku after a number swap:</p>
   <ul>
     <li><b>Two columns / rows.</b> Only numbers in the same row or column of a sub-square can be swapped. The conflicts
       are resolved by exchanging entries only between the two affected columns (or rows).</li>
     <li><b>Whole chain.</b> Any two numbers of a sub-square can be swapped. The conflicts are resolved by swapping the
       two numbers in every cell they chain through, anywhere on the board.</li>
   </ul>
+  <p>In a game of two random sudokus the button <b>Conflict resolution</b> below the board switches between them at any
+    time. In a scrambled game the target was scrambled in one of the ways, so you choose it in the <b>New game</b> dialog
+    and it stays the same during the game. The game type and the way are remembered.</p>
 
   <h2>New game</h2>
   <p>The <b>New game</b> button opens a dialog with the options of the game (starting it loses the current game):</p>

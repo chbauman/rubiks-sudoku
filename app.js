@@ -108,10 +108,11 @@
   }
 
   // ---- state ----
-  let start, target, grid, history, moves = 0, drag = null;
+  let start, target, grid, history, moves = 0, drag = null, gameKind = '15';
 
   function newGame() {
-    const kind = document.querySelector('input[name="kind"]:checked').value;
+    const kind = checkedKind();
+    gameKind = kind;
     start = generate();
     if (kind === 'random') target = generate();
     else {
@@ -197,6 +198,10 @@
       // while dragging a unit, only grips it can actually be dropped on stay enabled
       h.classList.toggle('disabled', !!unit && !(mine && (i === drag.idx || dragValid(drag.kind, drag.idx, i))));
     });
+    // a game of two random sudokus can use either way of resolving, in a scrambled game it is fixed
+    $('resolution-row').hidden = gameKind !== 'random';
+    $('resolution').textContent = 'Conflict resolution: ' + resolutionInfo[resolution][0];
+    $('resolution').title = resolutionInfo[resolution][1];
     $('undo').disabled = !history.length;
   }
 
@@ -259,6 +264,7 @@
   $('undo').onclick = () => { if (history.length) { grid = history.pop(); moves--; render(); } };
 
   // ---- dialogs: restart (asks, as the moves are lost) and new game (with the options of the game)
+  const checkedKind = () => document.querySelector('input[name="kind"]:checked').value;
   const inProgress = () => moves > 0 && !same(grid, target);
   const movesText = n => `${n} move${n === 1 ? '' : 's'}`;
   for (const dlg of document.querySelectorAll('dialog')) {
@@ -285,17 +291,40 @@
   }
   $('new').onclick = () => {
     document.querySelector('input[name="resolution"][value="' + resolution + '"]').checked = true;
+    document.querySelector('input[name="kind"][value="' + gameKind + '"]').checked = true;  // not a cancelled choice
     const warning = $('new-warning');
     warning.hidden = !inProgress();
     warning.textContent = `Starting a new game loses the current one, with its ${movesText(moves)}.`;
+    syncResolutionOptions();
     $('new-dialog').showModal();
   };
   $('new-cancel').onclick = () => $('new-dialog').close();
   $('new-start').onclick = () => {
-    resolution = document.querySelector('input[name="resolution"]:checked').value;
+    // for two random sudokus the way is not chosen here (the button on the page does it)
+    if (checkedKind() !== 'random') resolution = document.querySelector('input[name="resolution"]:checked').value;
     $('new-dialog').close();
     newGame();
+    saveOptions();
   };
+  // the way of resolving is only an option of the scrambled games
+  const syncResolutionOptions = () => { $('resolution-options').hidden = checkedKind() === 'random'; };
+  document.querySelectorAll('input[name="kind"]').forEach(r => r.addEventListener('change', syncResolutionOptions));
+  $('resolution').onclick = () => { resolution = resolution === 'columns' ? 'chain' : 'columns'; saveOptions(); render(); };
+
+  // ---- the used options (game type and way of resolving) are saved
+  const OPTIONS_KEY = 'rubiks-sudoku:options:v1';
+  function saveOptions() {
+    try { localStorage.setItem(OPTIONS_KEY, JSON.stringify({ kind: gameKind, resolution })); } catch (e) {}
+  }
+  function loadOptions() {
+    try {
+      const o = JSON.parse(localStorage.getItem(OPTIONS_KEY));
+      if (o && resolutionInfo[o.resolution]) resolution = o.resolution;
+      const radio = o && document.querySelector('input[name="kind"][value="' + o.kind + '"]');
+      if (radio) radio.checked = true;
+    } catch (e) {}
+    syncResolutionOptions();
+  }
 
   // ---- pages: the game, the help and the about page are selected by the URL hash (#help, #about),
   // so the browser's back button returns to the game
@@ -334,5 +363,6 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
   showPage();
   window.__rs = { ops, isValid, generate }; // handy for debugging in the console
+  loadOptions();
   newGame();
 })();
