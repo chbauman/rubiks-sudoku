@@ -76,3 +76,19 @@ button:disabled { opacity: .5; cursor: default; }
 .hint { text-align: center; color: var(--muted); font-size: .9rem; min-height: 1.3em; }
 button.icon { width: 40px; height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 button.icon svg { display: block; }
+/* Dialogs: restart and new game */
+dialog { max-width: min(92vw, 420px); padding: 18px 20px; border: 1px solid var(--line); border-radius: 12px;
+         background: var(--card); color: var(--fg); box-shadow: 0 8px 30px rgb(0 0 0 / .3); }
+dialog::backdrop { background: rgb(0 0 0 / .45); }
+dialog h2 { margin: 0 0 10px; font-size: 1.2rem; }
+dialog p { margin: 0 0 10px; }
+dialog fieldset { margin: 0 0 12px; padding: 8px 12px 10px; border: 1px solid var(--line); border-radius: 8px; }
+dialog legend { padding: 0 6px; color: var(--muted); font-size: .9rem; }
+dialog label { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; cursor: pointer; }
+dialog label input { margin-top: .3em; accent-color: var(--accent); }
+dialog small { color: var(--muted); }
+dialog .warning { padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, #e0a000 18%, var(--card)); }
+.dialog-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { filter: brightness(1.1); }
+@media (prefers-color-scheme: dark) { button.primary { color: #10131a; } }

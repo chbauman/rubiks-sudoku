@@ -111,7 +111,7 @@
   let start, target, grid, history, moves = 0, drag = null;
 
   function newGame() {
-    const kind = $('kind').value;
+    const kind = document.querySelector('input[name="kind"]:checked').value;
     start = generate();
     if (kind === 'random') target = generate();
     else {
@@ -197,8 +197,6 @@
       // while dragging a unit, only grips it can actually be dropped on stay enabled
       h.classList.toggle('disabled', !!unit && !(mine && (i === drag.idx || dragValid(drag.kind, drag.idx, i))));
     });
-    $('resolution').textContent = 'Conflict resolution: ' + resolutionInfo[resolution][0];
-    $('resolution').title = resolutionInfo[resolution][1];
     $('undo').disabled = !history.length;
   }
 
@@ -259,9 +257,45 @@
   buildBoard($('cur'), true);
   for (const k of ['rotL', 'rotR', 'flipH', 'flipV']) $(k).onclick = () => { if (!same(grid, target)) commit(ops[k](grid)); };
   $('undo').onclick = () => { if (history.length) { grid = history.pop(); moves--; render(); } };
-  $('resolution').onclick = () => { resolution = resolution === 'columns' ? 'chain' : 'columns'; render(); };
-  $('reset').onclick = restart;
-  $('new').onclick = newGame;
+
+  // ---- dialogs: restart (asks, as the moves are lost) and new game (with the options of the game)
+  const inProgress = () => moves > 0 && !same(grid, target);
+  const movesText = n => `${n} move${n === 1 ? '' : 's'}`;
+  for (const dlg of document.querySelectorAll('dialog')) {
+    dlg.addEventListener('click', e => {  // a click on the backdrop closes the dialog
+      const r = dlg.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dlg.close();
+    });
+  }
+  $('reset').onclick = () => {
+    if (!inProgress()) return restart();
+    $('restart-text').textContent = `The ${movesText(moves)} you made in this game are lost.`;
+    $('restart-dialog').showModal();
+  };
+  $('restart-cancel').onclick = () => $('restart-dialog').close();
+  $('restart-yes').onclick = () => { $('restart-dialog').close(); restart(); };
+
+  for (const [value, [name, info]] of Object.entries(resolutionInfo)) {
+    const label = document.createElement('label');
+    label.innerHTML = '<input type="radio" name="resolution" value="' + value + '"> <span></span>';
+    label.lastChild.innerHTML = '<b></b><br><small></small>';
+    label.lastChild.children[0].textContent = name;
+    label.lastChild.children[2].textContent = info;
+    $('resolution-options').appendChild(label);
+  }
+  $('new').onclick = () => {
+    document.querySelector('input[name="resolution"][value="' + resolution + '"]').checked = true;
+    const warning = $('new-warning');
+    warning.hidden = !inProgress();
+    warning.textContent = `Starting a new game loses the current one, with its ${movesText(moves)}.`;
+    $('new-dialog').showModal();
+  };
+  $('new-cancel').onclick = () => $('new-dialog').close();
+  $('new-start').onclick = () => {
+    resolution = document.querySelector('input[name="resolution"]:checked').value;
+    $('new-dialog').close();
+    newGame();
+  };
 
   // ---- pages: the game, the help and the about page are selected by the URL hash (#help, #about),
   // so the browser's back button returns to the game
