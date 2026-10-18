@@ -112,19 +112,22 @@
   // ('columns', 'chain' or 'both'), gameWay: the way of the running game
   let start, target, grid, history, moves = 0, drag = null, gameKind = '15', way = 'columns', gameWay = 'columns';
 
+  // no number can be moved in a scrambled game of the way 'none'
+  const numbersLocked = () => gameKind !== 'random' && gameWay === 'none';
+
   function newGame() {
     const kind = checkedKind();
     gameKind = kind;
     gameWay = way;
     // a fixed way is the way of the game; with 'both' and for random sudokus the player chooses (see the button)
-    if (kind !== 'random' && way !== 'both') resolution = way;
+    if (kind !== 'random' && resolutionInfo[way]) resolution = way;  // not for 'both' and 'none'
     start = generate();
     if (kind === 'random') target = generate();
     else {
       target = clone(start);
       const simple = ['rotR', 'rotL', 'flipH', 'flipV'];
       for (let i = 0; i < +kind; i++) {
-        const t = rnd(5);
+        const t = rnd(way === 'none' ? 4 : 5);  // 4 is the number swap
         if (t === 0) target = ops[simple[rnd(4)]](target);
         else if (t === 1) { const b = rnd(3), [x, y] = shuffle([0, 1, 2]); target = ops.row(target, 3 * b + x, 3 * b + y); }
         else if (t === 2) { const b = rnd(3), [x, y] = shuffle([0, 1, 2]); target = ops.col(target, 3 * b + x, 3 * b + y); }
@@ -152,7 +155,7 @@
       d.className = 'cell' + (c % 3 === 2 && c < 8 ? ' br' : '') + (r % 3 === 2 && r < 8 ? ' bb' : '');
       if (interactive) {
         d.onpointerdown = () => {  // drag a number onto another cell of its sub-square (same row/column)
-          if (same(grid, target)) return;
+          if (same(grid, target) || numbersLocked()) return;
           drag = { kind: 'number', from: [r, c], over: null };
           document.body.classList.add('dragging');
           render();
@@ -206,13 +209,15 @@
     // the player can switch the way of resolving in a game of two random sudokus and in a scrambled game with both
     // ways; in the other scrambled games it is fixed, as the target was scrambled in that way
     const canSwitch = gameKind === 'random' || gameWay === 'both';
+    $('cur').classList.toggle('no-swaps', numbersLocked());
     $('resolution-row').hidden = !canSwitch;
     $('resolution').textContent = 'Conflict resolution: ' + resolutionInfo[resolution][0];
     $('resolution').title = resolutionInfo[resolution][1];
     // the way of a fixed game is shown as an indicator instead of the button
     $('mode').hidden = canSwitch;
-    $('mode').textContent = 'Conflict resolution: ' + resolutionInfo[resolution][0] + ' (fixed)';
-    $('mode').title = resolutionInfo[resolution][1];
+    $('mode').textContent = numbersLocked() ? 'Numbers cannot be moved (no conflict resolution)'
+      : 'Conflict resolution: ' + resolutionInfo[resolution][0] + ' (fixed)';
+    $('mode').title = numbersLocked() ? wayInfo.none[1] : resolutionInfo[resolution][1];
     $('undo').disabled = !history.length;
   }
 
@@ -295,6 +300,7 @@
   const wayInfo = {
     ...resolutionInfo,
     both: ['Both', 'The target is scrambled with either way, and you can switch between them during the game.'],
+    none: ['None', 'The numbers cannot be moved: the target is scrambled with rows, columns, bands, stacks, rotations and flips only.'],
   };
   for (const [value, [name, info]] of Object.entries(wayInfo)) {
     const label = document.createElement('label');
