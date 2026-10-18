@@ -306,7 +306,6 @@
     const page = currentPage();
     document.querySelectorAll('[data-page]').forEach(el => { el.hidden = el.dataset.page !== page; });
     $('page-title').textContent = TITLES[page];
-    $('logo').hidden = page !== 'game';
     $('back-btn').hidden = page === 'game';
     closeMenu();
     window.scrollTo(0, 0);
