@@ -54,8 +54,10 @@ mode indicator shows which one is in use.
 
 ## Search engines
 
-`index.html` has title and description, canonical address, Open Graph / Twitter card
-(`assets/social-card.png`) and structured data (`WebApplication`). `sitemap.xml` lists the page.
-A `robots.txt` has to be at the root of the domain (`https://chrisbaumann.ch/robots.txt`), a `Sitemap:`
-line there can point to <https://chrisbaumann.ch/rubiks-sudoku/sitemap.xml>; it can also be submitted
-in the Google Search Console.
+`index.html` has a description, a canonical address, Open Graph / Twitter card tags
+(`assets/social-card.png`), structured data (`WebApplication`) and the help text
+in the HTML itself. `sitemap.xml` lists the page. The page is
+<https://chrisbaumann.ch/rubiks-sudoku/>. A `robots.txt` has to be at the root of
+the domain (`https://chrisbaumann.ch/robots.txt`), a `Sitemap:` line there can point to
+<https://chrisbaumann.ch/rubiks-sudoku/sitemap.xml>; it can also be submitted in the
+Google Search Console.
