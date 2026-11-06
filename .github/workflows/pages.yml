@@ -26,6 +26,8 @@ jobs:
         run: |
           mkdir _site
           cp index.html style.css app.js logo.svg _site/
+          cp sitemap.xml _site/
+          cp -r assets _site/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

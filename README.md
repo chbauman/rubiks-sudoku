@@ -51,3 +51,13 @@ mode indicator shows which one is in use.
 - The last chosen game type and way are saved in the browser.
 - The menu in the corner opens the Help page (how to play, the moves, the conflict resolution) and the About page
   (links to the sources and the author).
+
+## Search engines
+
+`index.html` has a description, a canonical address, Open Graph / Twitter card tags
+(`assets/social-card.png`), structured data (`WebApplication`) and the help text
+in the HTML itself. `sitemap.xml` lists the page. The page is
+<https://chrisbaumann.ch/rubiks-sudoku/>. A `robots.txt` has to be at the root of
+the domain (`https://chrisbaumann.ch/robots.txt`), a `Sitemap:` line there can point to
+<https://chrisbaumann.ch/rubiks-sudoku/sitemap.xml>; it can also be submitted in the
+Google Search Console.
